@@ -86,9 +86,9 @@ class CLI(object):
         self.main_box = None
         self.main_cols = None
 
-        self.init_suggestion_list_box()
         self.init_header()
         self.init_search_bar()
+        self.init_suggestion_list_box()
         self.init_body()
         self.init_main_container()
 
@@ -99,8 +99,7 @@ class CLI(object):
         self.main_frame = urwid.Frame(
             body=self.body,
             header=self.header_pile,
-            footer=self.search_box,
-            focus_part='footer'
+            footer=urwid.Text('(ctrl-e)')
         )
         self.main_box = urwid.LineBox(self.main_frame)
         self.main_cols = urwid.Columns([('weight', 5, self.main_box), ('weight', 2, self.suggestions_listbox)])
@@ -111,7 +110,7 @@ class CLI(object):
         self.body = urwid.Filler(self.body_edit_text, 'top')
 
     def init_search_bar(self):
-        self.search_level_text = urwid.Text('Search:    ')
+        self.search_level_text = urwid.Text('Search:  \n(ctrl-p)')
         self.search_box = urwid.LineBox(self.search_level_text)
 
     def init_header(self):
@@ -127,10 +126,8 @@ class CLI(object):
         self.header_pile = urwid.Pile([self.header, self.header_div])
 
     def init_suggestion_list_box(self):
-        self.suggestion_content = [urwid.Text('Noots'), urwid.Divider()]
+        self.suggestion_content = [self.search_box, urwid.Divider()]
 
-        b = urwid.Button('Noots!')
-        self.suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
         self.main_lw = urwid.SimpleFocusListWalker(self.suggestion_content)
         self.main_suggestion_listbox = urwid.ListBox(self.main_lw)
 
@@ -146,7 +143,7 @@ class CLI(object):
         self.header.set_text(self.header_text)
 
     def update_suggestion_list(self):
-        suggestion_content = [urwid.Text('Noots'), urwid.Divider()]
+        suggestion_content = [self.search_box, urwid.Divider()]
 
         for item in self.search_manager.sorted_filenames:
             label = item[2]
@@ -182,7 +179,7 @@ class CLI(object):
         self.header.set_text(text)
 
     def input_callback(self, key):
-        if key == '?' and self.main_frame.focus_position == 'footer':
+        if key == '?':
             self.show_help()
             return
 
@@ -193,12 +190,13 @@ class CLI(object):
         self.reset_header()
 
 
-        if key in  ('up', 'ctrl e') and self.main_frame.focus_position == 'footer':
+        if key in  ('up', 'ctrl e'):
             self.main_frame.set_focus('body')
+            self.main_cols.set_focus(0)
             return
 
-        if key == 'ctrl x':
-            self.main_frame.set_focus('footer')
+        if key == 'ctrl p':
+            self.main_cols.set_focus(1)
             return
 
         if key == 'backspace':
@@ -216,7 +214,7 @@ class CLI(object):
             self.body_edit_text.set_edit_text('')
 
         search_string = search_string or ''.join(self.search_chars).strip()
-        display_txt = "Search:  {0}".format(search_string)
+        display_txt = "Search:  {0}\n(ctrl-p)".format(search_string)
         self.search_level_text.set_text(display_txt)
 
         self.search_and_set_body_and_header(search_string, update_list)
