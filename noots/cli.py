@@ -44,7 +44,7 @@ class SearchManager(object):
                 suggestions.append((len(match.group()), match.start(), item))
         try:
             self.sorted_filenames = sorted(suggestions)
-            self.matched_title = str([x for len_match, _, x in self.sorted_filenames if len_match > 1][0])
+            self.matched_title = str([x for len_match, _, x in self.sorted_filenames][0])
         except IndexError:
             self.matched_title = ''
 
@@ -103,7 +103,8 @@ class CLI(object):
             focus_part='footer'
         )
         self.main_box = urwid.LineBox(self.main_frame)
-        self.main_cols = urwid.Columns([('weight', 5, self.main_box), ('weight', 1, self.suggestions_listbox)])
+        self.main_cols = urwid.Columns([('weight', 5, self.main_box), ('weight', 2, self.suggestions_listbox)])
+        self.main_cols.set_focus(1)
 
     def init_body(self):
         self.body_edit_text = urwid.Edit('', multiline=True)
@@ -117,6 +118,7 @@ class CLI(object):
         self.header_text = ("Wecome to Noots!\n\n"
                             "Ctrl-D anytime to save current note. \n"
                             "Ctrl-x to focus search/title bar.\n"
+                            "Alternatively, you may search while focusing the Noots listbox to the right.\n"
                             "Press Ctrl-e to focus note editor\n"
                             "Hold alt to copy text.\n"
                             "Press ? to view this section again.")
