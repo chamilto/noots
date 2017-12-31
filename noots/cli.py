@@ -52,10 +52,10 @@ class SearchManager(object):
         """Update filename cache using glob pattern."""
         glob_pat = os.path.join(NOOTS_PATH, '*.noot')
         file_list = glob.glob(glob_pat)
-        self._fn_cache = [path_leaf(f) for f in file_list]
+        self._fn_cache = [path_leaf(f).replace('.noot', '') for f in file_list]
 
     def read_from_match(self):
-        read_path = os.path.join(NOOTS_PATH, self.matched_title)
+        read_path = os.path.join(NOOTS_PATH, self.matched_title + '.noot')
         try:
             with open(read_path) as fin:
                 data = fin.read()
@@ -96,28 +96,33 @@ class CLI(object):
         self.search_chars = []
 
     def init_main_container(self):
+        footer_text = ('foot', [
+            "Noots  ",
+            ('key', "|  (?) "), "help menu ",
+        ])
+        self.footer = urwid.AttrWrap(urwid.Text(footer_text), "foot")
         self.main_frame = urwid.Frame(
             body=self.body,
             header=self.header_pile,
-            footer=urwid.Text('(ctrl-e)')
-        )
+            footer=self.footer)
+
         self.main_box = urwid.LineBox(self.main_frame)
-        self.main_cols = urwid.Columns([('weight', 5, self.main_box), ('weight', 2, self.suggestions_listbox)])
-        self.main_cols.set_focus(1)
+        self.main_cols = urwid.Columns([('weight', 2, self.suggestions_listbox), ('weight', 5, self.main_box),])
+        self.main_cols.set_focus(0)
 
     def init_body(self):
         self.body_edit_text = urwid.Edit('', multiline=True)
         self.body = urwid.Filler(self.body_edit_text, 'top')
 
     def init_search_bar(self):
-        self.search_level_text = urwid.Text('Search:  \n(ctrl-p)')
+        self.search_level_text = urwid.Text('Search: ')
         self.search_box = urwid.LineBox(self.search_level_text)
 
     def init_header(self):
         self.header_text = ("Wecome to Noots!\n\n"
                             "Ctrl-D anytime to save current note. \n"
                             "Ctrl-x to focus search/title bar.\n"
-                            "Alternatively, you may search while focusing the Noots listbox to the right.\n"
+                            "Alternatively, you may search while focusing the Noots listbox to the left.\n"
                             "Press Ctrl-e to focus note editor\n"
                             "Hold alt to copy text.\n"
                             "Press ? to view this section again.")
@@ -192,11 +197,11 @@ class CLI(object):
 
         if key in  ('up', 'ctrl e'):
             self.main_frame.set_focus('body')
-            self.main_cols.set_focus(0)
+            self.main_cols.set_focus(1)
             return
 
         if key == 'ctrl p':
-            self.main_cols.set_focus(1)
+            self.main_cols.set_focus(0)
             return
 
         if key == 'backspace':
@@ -204,7 +209,7 @@ class CLI(object):
                 self.search_chars.pop()
             except IndexError:
                 pass
-        elif key not in ('meta', 'down', 'up', 'right', 'left'):
+        elif key not in ('enter', 'meta', 'down', 'up', 'right', 'left'):
                 self.search_chars.append(key)
 
         self.update()
@@ -214,7 +219,7 @@ class CLI(object):
             self.body_edit_text.set_edit_text('')
 
         search_string = search_string or ''.join(self.search_chars).strip()
-        display_txt = "Search:  {0}\n(ctrl-p)".format(search_string)
+        display_txt = "Search:  {0}".format(search_string)
         self.search_level_text.set_text(display_txt)
 
         self.search_and_set_body_and_header(search_string, update_list)
@@ -231,7 +236,7 @@ class CLI(object):
                 self.set_body(self.search_manager.read_from_match())
             except AttributeError:
                 pass
-            self.set_header(self.search_manager.matched_title)
+            self.set_header(self.search_manager.matched_title + '.noot')
         else:
             if search_string:
                 self.set_header('(New): {0}.noot'.format(search_string.replace(' ', '_')))
