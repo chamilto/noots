@@ -25,6 +25,7 @@ class SearchManager(object):
         self._fn_cache = []
         self.refresh_fn_cache()
         self.matched_title = ''
+        self.sorted_filenames = []
 
     def search(self, search_str):
         """
@@ -42,8 +43,8 @@ class SearchManager(object):
             if match:
                 suggestions.append((len(match.group()), match.start(), item))
         try:
-            sorted_filenames = sorted(suggestions)
-            self.matched_title = str([x for len_match, _, x in sorted_filenames if len_match > 1][0])
+            self.sorted_filenames = sorted(suggestions)
+            self.matched_title = str([x for len_match, _, x in self.sorted_filenames if len_match > 1][0])
         except IndexError:
             self.matched_title = ''
 
@@ -69,17 +70,32 @@ class CLI(object):
        Input handling can move to individual widgets if this becomes burdensome.
     """
     def __init__(self):
-        self.search_level_text = urwid.Text('Search:    ')
-        self.body_edit_text = urwid.Edit('', multiline=True)
-        self.body = urwid.Filler(self.body_edit_text, 'top')
-        self.header_text = ("Wecome to Noots! Ctrl-D anytime to save current note. \n"
-                            "Ctrl-x to focus search/title bar. Press Ctrl-e to focus note editor\n"
-                            "Hold alt to copy text.\n"
-                            "Press Ctrl-? to view this section again.")
-        self.header = urwid.Text(self.header_text)
-        self.header_div = urwid.Divider('.')
-        self.header_pile = urwid.Pile([self.header, self.header_div])
-        self.search_box = urwid.LineBox(self.search_level_text)
+        self.suggestion_content = []
+        self.main_lw = None
+        self.main_suggestion_listbox = None
+        self.suggestions_listbox = None
+        self.header_text = ''
+        self.header = None
+        self.header_div = None
+        self.header_pile = None
+        self.search_level_text = ''
+        self.search_box = None
+        self.body_edit_text = None
+        self.body = None
+        self.main_frame = None
+        self.main_box = None
+        self.main_cols = None
+
+        self.init_suggestion_list_box()
+        self.init_header()
+        self.init_search_bar()
+        self.init_body()
+        self.init_main_container()
+
+        self.search_manager = SearchManager()
+        self.search_chars = []
+
+    def init_main_container(self):
         self.main_frame = urwid.Frame(
             body=self.body,
             header=self.header_pile,
@@ -87,12 +103,60 @@ class CLI(object):
             focus_part='footer'
         )
         self.main_box = urwid.LineBox(self.main_frame)
-        self.search_manager = SearchManager()
-        self.search_chars = []
+        self.main_cols = urwid.Columns([('weight', 5, self.main_box), ('weight', 1, self.suggestions_listbox)])
+
+    def init_body(self):
+        self.body_edit_text = urwid.Edit('', multiline=True)
+        self.body = urwid.Filler(self.body_edit_text, 'top')
+
+    def init_search_bar(self):
+        self.search_level_text = urwid.Text('Search:    ')
+        self.search_box = urwid.LineBox(self.search_level_text)
+
+    def init_header(self):
+        self.header_text = ("Wecome to Noots!\n\n"
+                            "Ctrl-D anytime to save current note. \n"
+                            "Ctrl-x to focus search/title bar.\n"
+                            "Press Ctrl-e to focus note editor\n"
+                            "Hold alt to copy text.\n"
+                            "Press ? to view this section again.")
+        self.header = urwid.Text(self.header_text)
+        self.header_div = urwid.Divider('.')
+        self.header_pile = urwid.Pile([self.header, self.header_div])
+
+    def init_suggestion_list_box(self):
+        self.suggestion_content = [urwid.Text('Noots'), urwid.Divider()]
+
+        b = urwid.Button('Noots!')
+        self.suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
+        self.main_lw = urwid.SimpleFocusListWalker(self.suggestion_content)
+        self.main_suggestion_listbox = urwid.ListBox(self.main_lw)
+
+        suggestion_items = urwid.Padding(self.main_suggestion_listbox, left=2, right=2)
+        self.suggestions_listbox = urwid.Overlay(suggestion_items, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
+        align='center', width=('relative', 100),
+        valign='middle', height=('relative', 100),
+        min_width=20, min_height=9)
+
 
     def show_help(self):
         """Actions to perform before any handled input"""
         self.header.set_text(self.header_text)
+
+    def update_suggestion_list(self):
+        suggestion_content = [urwid.Text('Noots'), urwid.Divider()]
+
+        for item in self.search_manager.sorted_filenames:
+            label = item[2]
+            b = urwid.Button(label)
+            urwid.connect_signal(b, 'click', self.on_list_item_clicked, label)
+            suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
+
+        self.main_lw[:] = urwid.SimpleFocusListWalker(suggestion_content)
+        self.loop.draw_screen()
+
+    def on_list_item_clicked(self, button, label):
+        self.update(search_string=label, update_list=False)
 
     def save_note(self):
         title = ''.join(self.search_chars) + '.noot'
@@ -103,6 +167,7 @@ class CLI(object):
 
         self.search_manager.refresh_fn_cache()
         self.set_header('Saved!')
+        self.update()
 
     def reset_header(self):
         if self.search_manager.matched_title:
@@ -126,7 +191,7 @@ class CLI(object):
         self.reset_header()
 
 
-        if key in  ('up', 'ctrl e'):
+        if key in  ('up', 'ctrl e') and self.main_frame.focus_position == 'footer':
             self.main_frame.set_focus('body')
             return
 
@@ -139,24 +204,27 @@ class CLI(object):
                 self.search_chars.pop()
             except IndexError:
                 pass
-        else:
-            self.search_chars.append(key)
+        elif key not in ('meta', 'down', 'up', 'right', 'left'):
+                self.search_chars.append(key)
 
         self.update()
 
-    def update(self):
+    def update(self, search_string='', update_list=True):
         if not self.search_chars:
             self.body_edit_text.set_edit_text('')
 
-        search_string = ''.join(self.search_chars).strip()
+        search_string = search_string or ''.join(self.search_chars).strip()
         display_txt = "Search:  {0}".format(search_string)
         self.search_level_text.set_text(display_txt)
 
-        self.search_and_set_body_and_header(search_string)
+        self.search_and_set_body_and_header(search_string, update_list)
 
 
-    def search_and_set_body_and_header(self, search_string):
+    def search_and_set_body_and_header(self, search_string, update_list):
         self.search_manager.search(search_string)
+
+        if update_list:
+            self.update_suggestion_list()
 
         if self.search_manager.matched_title:
             try:
@@ -173,8 +241,6 @@ class CLI(object):
             self.set_body('')
 
 
-
     def main(self):
-        loop = urwid.MainLoop(self.main_box, unhandled_input=self.input_callback)
-        loop.run()
-
+        self.loop = urwid.MainLoop(self.main_cols, unhandled_input=self.input_callback)
+        self.loop.run()
