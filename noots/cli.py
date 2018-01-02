@@ -43,10 +43,14 @@ class SearchManager(object):
             if match:
                 suggestions.append((len(match.group()), match.start(), item))
         try:
-            self.sorted_filenames = sorted(suggestions)
-            self.matched_title = str([x for len_match, _, x in self.sorted_filenames][0])
+            sorted_files = sorted(suggestions)
+            self.sorted_filenames = [x for len_match, _, x in sorted_files]
+            self.matched_title = str(self.sorted_filenames[0])
         except IndexError:
             self.matched_title = ''
+
+    def populate_sorted_filenames_from_fn_cache(self):
+        self.sorted_filenames = self._fn_cache[:]
 
     def refresh_fn_cache(self):
         """Update filename cache using glob pattern."""
@@ -95,11 +99,10 @@ class CLI(object):
         self.search_manager = SearchManager()
         self.search_chars = []
 
-        # match all
-        self.search_manager.search('.noots')
-        self.update()
+        self.search_manager.populate_sorted_filenames_from_fn_cache()
+        self.update_suggestion_list()
+
         self.set_body('')
-        self.set_header('')
 
     def init_main_container(self):
         footer_text = ('foot', [
@@ -161,8 +164,7 @@ class CLI(object):
         suggestion_content = [self.search_box, urwid.Divider()]
 
         if not clean:
-            for item in self.search_manager.sorted_filenames:
-                label = item[2]
+            for label in self.search_manager.sorted_filenames:
                 b = urwid.Button(label)
                 urwid.connect_signal(b, 'click', self.on_list_item_clicked, label)
                 suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
@@ -190,10 +192,6 @@ class CLI(object):
         self.set_header('Saved!')
         self.update(title)
 
-    def reset_header(self):
-        if self.search_manager.matched_title:
-            self.set_header(self.search_manager.matched_title)
-
     def set_body(self, text):
         self.body_edit_text.set_edit_text(text)
 
@@ -208,9 +206,6 @@ class CLI(object):
         if key == 'ctrl d':
             self.save_note()
             return
-
-        self.reset_header()
-
 
         if key in  ('up', 'ctrl e'):
             self.main_frame.set_focus('body')
