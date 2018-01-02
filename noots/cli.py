@@ -173,9 +173,14 @@ class CLI(object):
         self.update(search_string=label, update_list=False)
 
     def save_note(self):
-        title = ''.join(self.search_chars) + '.noot'
-        title = title.replace(' ', '_')
+        if self.search_manager.matched_title:
+            title = self.search_manager.matched_title + '.noot'
+        else:
+            title = ''.join(self.search_chars) + '.noot'
+            title = title.replace(' ', '_')
+
         filepath = os.path.join(NOOTS_PATH, title)
+
         with open(filepath, 'w') as fout:
             fout.write(self.body_edit_text.get_edit_text())
 
@@ -257,7 +262,7 @@ class CLI(object):
                 self.set_body(self.search_manager.read_from_match())
             except AttributeError:
                 pass
-            self.set_header(self.search_manager.matched_title + '.noot')
+            self.set_header(self.search_manager.matched_title)
         else:
             if search_string:
                 self.set_header('(New): {0}.noot'.format(search_string.replace(' ', '_')))
