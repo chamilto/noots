@@ -174,19 +174,21 @@ class CLI(object):
 
     def save_note(self):
         if self.search_manager.matched_title:
-            title = self.search_manager.matched_title + '.noot'
+            title = self.search_manager.matched_title
         else:
-            title = ''.join(self.search_chars) + '.noot'
-            title = title.replace(' ', '_')
+            title = ''.join(self.search_chars)
 
-        filepath = os.path.join(NOOTS_PATH, title)
+        title = title.replace(' ', '_')
+        title_fn = title + '.noot'
+
+        filepath = os.path.join(NOOTS_PATH, title_fn)
 
         with open(filepath, 'w') as fout:
             fout.write(self.body_edit_text.get_edit_text())
 
         self.search_manager.refresh_fn_cache()
         self.set_header('Saved!')
-        self.update()
+        self.update(title)
 
     def reset_header(self):
         if self.search_manager.matched_title:
@@ -275,3 +277,6 @@ class CLI(object):
     def main(self):
         self.loop = urwid.MainLoop(self.main_cols, unhandled_input=self.input_callback)
         self.loop.run()
+if __name__ == '__main__':
+    c = CLI()
+    c.main()
