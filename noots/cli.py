@@ -95,6 +95,12 @@ class CLI(object):
         self.search_manager = SearchManager()
         self.search_chars = []
 
+        # match all
+        self.search_manager.search('.noots')
+        self.update()
+        self.set_body('')
+        self.set_header('')
+
     def init_main_container(self):
         footer_text = ('foot', [
             "Noots  ",
@@ -119,13 +125,18 @@ class CLI(object):
         self.search_box = urwid.LineBox(self.search_level_text)
 
     def init_header(self):
-        self.header_text = ("Wecome to Noots!\n\n"
+        logo  = """
+    _   __            __
+   / | / /___  ____  / /______
+  /  |/ / __ \/ __ \/ __/ ___/
+ / /|  / /_/ / /_/ / /_(__  )
+/_/ |_/\____/\____/\__/____/
+        """
+        self.header_text = ("{logo}\n"
                             "Ctrl-D anytime to save current note. \n"
-                            "Ctrl-x to focus search/title bar.\n"
-                            "Alternatively, you may search while focusing the Noots listbox to the left.\n"
-                            "Press Ctrl-e to focus note editor\n"
-                            "Hold alt to copy text.\n"
-                            "Press ? to view this section again.")
+                            "Ctrl-P to focus search/title bar.\n"
+                            "Press Ctrl-E to focus note editor\n"
+                            "Hold alt to copy text.\n".format(logo=logo))
         self.header = urwid.Text(self.header_text)
         self.header_div = urwid.Divider('.')
         self.header_pile = urwid.Pile([self.header, self.header_div])
@@ -144,20 +155,19 @@ class CLI(object):
 
 
     def show_help(self):
-        """Actions to perform before any handled input"""
         self.header.set_text(self.header_text)
 
-    def update_suggestion_list(self):
+    def update_suggestion_list(self, clean=False):
         suggestion_content = [self.search_box, urwid.Divider()]
 
-        for item in self.search_manager.sorted_filenames:
-            label = item[2]
-            b = urwid.Button(label)
-            urwid.connect_signal(b, 'click', self.on_list_item_clicked, label)
-            suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
+        if not clean:
+            for item in self.search_manager.sorted_filenames:
+                label = item[2]
+                b = urwid.Button(label)
+                urwid.connect_signal(b, 'click', self.on_list_item_clicked, label)
+                suggestion_content.append(urwid.AttrMap(b, None, focus_map='reversed'))
 
         self.main_lw[:] = urwid.SimpleFocusListWalker(suggestion_content)
-        self.loop.draw_screen()
 
     def on_list_item_clicked(self, button, label):
         self.update(search_string=label, update_list=False)
@@ -204,15 +214,26 @@ class CLI(object):
             self.main_cols.set_focus(0)
             return
 
+        if key == 'esc':
+            self.search_chars[:] = []
+            self.update()
+            self.set_body('')
+            self.set_header('')
+            return
+
         if key == 'backspace':
             try:
                 self.search_chars.pop()
             except IndexError:
                 pass
-        elif key not in ('enter', 'meta', 'down', 'up', 'right', 'left'):
-                self.search_chars.append(key)
+        elif key not in ('enter', 'meta', 'down', 'up', 'right', 'left') and type(key) == str:
+            self.search_chars.append(key)
 
-        self.update()
+
+        try:
+            self.update()
+        except:
+            pass
 
     def update(self, search_string='', update_list=True):
         if not self.search_chars:
