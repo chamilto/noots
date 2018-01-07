@@ -1,12 +1,11 @@
 import configparser
 import glob
-import os
 import ntpath
-import re
+import os
 from pathlib import Path
+import re
 
 import urwid
-
 
 home = str(Path.home())
 config_file_path = os.path.join(home, '.noots.ini')
@@ -151,7 +150,6 @@ class AppController(object):
         self.main_suggestion_listbox = urwid.ListBox(self.main_lw)
 
         self.suggestions_listbox_container = urwid.Padding(self.main_suggestion_listbox, left=2, right=2)
-
 
     def _show_help(self):
         self.header.set_text(self.help_text)

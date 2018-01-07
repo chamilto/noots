@@ -1,5 +1,5 @@
-from noots.cli import CLI
+from noots.noots import AppController
 
 def main():
-    interface = CLI()
-    interface.main()
+    controller = AppController()
+    controller.main()
