@@ -221,7 +221,7 @@ class AppController(object):
             self.search_chars[:] = []
             self.update()
             self._set_body('')
-            self._set_header('')
+            self._set_header(self.help_text)
             self.main_cols.set_focus(0)
             return
 
