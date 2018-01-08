@@ -112,7 +112,11 @@ class AppController(object):
         self.search_manager.populate_sorted_filenames_from_fn_cache()
         self._update_suggestion_list()
 
-        self.loop = urwid.MainLoop(self.main_cols, unhandled_input=self.handle_input)
+        self.loop = urwid.MainLoop(
+            self.main_cols,
+            unhandled_input=self.handle_input,
+            input_filter=self._input_filter,
+        )
 
     def _init_main_container(self):
         footer_text = ('foot', [
@@ -213,7 +217,7 @@ class AppController(object):
             self._save_note()
             return
 
-        if key in  ('ctrl e'):
+        if key ==  'ctrl e':
             self._open_file_in_editor()
             return
 
@@ -237,6 +241,13 @@ class AppController(object):
             self.update()
         except:
             pass
+
+    def _input_filter(self, keys, raw):
+        if keys[0] == ' ':
+            self.handle_input(keys[0])
+            return
+
+        return keys
 
     def update(self, search_string='', update_list=True):
         if not self.search_chars:
