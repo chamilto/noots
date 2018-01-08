@@ -243,9 +243,12 @@ class AppController(object):
             pass
 
     def _input_filter(self, keys, raw):
-        if keys[0] == ' ':
-            self.handle_input(keys[0])
-            return
+        try:
+            if keys[0] == ' ':
+                self.handle_input(keys[0])
+                return
+        except IndexError:
+            self.handle_input('esc')
 
         return keys
 
