@@ -257,7 +257,7 @@ class AppController(object):
         display_txt = "Search:  {0}".format(search_string)
         self._set_search_text(display_txt)
 
-        self.search_manager.search(search_string)
+        self.search_manager.search(search_string.replace(' ', '_'))
 
         if update_list:
             self._update_suggestion_list()
@@ -290,15 +290,17 @@ class AppController(object):
     def _open_file_in_editor(self):
         """Open either the matched note or a new note in the user's editor of choice."""
         filename = self.search_manager.matched_title or ''.join(self.search_chars).strip()
+        filename = filename.replace(' ', '_')
 
         if not filename:
             return
-
-        self.search_manager.search(filename)
-        filename = filename + NOTE_FILE_EXT
-        filepath = os.path.join(NOOTS_PATH, filename)
+        fq_filename = filename + NOTE_FILE_EXT
+        filepath = os.path.join(NOOTS_PATH, fq_filename)
         self._exec_subproc('{0} {1}'.format(EDITOR, filepath))
+        self.search_manager.refresh_fn_cache()
+        self.search_manager.matched_title = filename
         self._set_body(self.search_manager.read_from_match())
+        self._set_header(filename)
 
     def _clear(self):
         """Reset application state."""
