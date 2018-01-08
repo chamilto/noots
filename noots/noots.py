@@ -4,6 +4,7 @@ import ntpath
 import os
 from pathlib import Path
 import re
+import subprocess
 
 import urwid
 
@@ -12,6 +13,7 @@ config_file_path = os.path.join(home, '.noots.ini')
 conf = configparser.ConfigParser()
 conf.read(config_file_path)
 NOOTS_PATH = conf['NOOTS']['note_path']
+EDITOR = conf['NOOTS']['editor']
 LOGO  = """
     _   __            __
    / | / /___  ____  / /______
@@ -110,6 +112,8 @@ class AppController(object):
         self.search_manager.populate_sorted_filenames_from_fn_cache()
         self._update_suggestion_list()
 
+        self.loop = urwid.MainLoop(self.main_cols, unhandled_input=self.handle_input)
+
     def _init_main_container(self):
         footer_text = ('foot', [
             "Noots  ",
@@ -135,10 +139,10 @@ class AppController(object):
 
     def _init_header(self):
         self.help_text = ("{logo}\n"
-                            "Ctrl-D anytime to save current note. \n"
-                            "Ctrl-P to focus search/title bar.\n"
-                            "Press Ctrl-E to focus note editor\n"
-                            "Hold alt to copy text.\n".format(logo=LOGO))
+                          "Ctrl-D anytime to save current note. \n"
+                          "Ctrl-P to focus search/title bar.\n"
+                          "Press Ctrl-E to focus note editor\n"
+                          "Hold alt to copy text.\n".format(logo=LOGO))
         self.header = urwid.Text(self.help_text)
         self.header_div = urwid.Divider('.')
         self.header_pile = urwid.Pile([self.header, self.header_div])
@@ -208,9 +212,8 @@ class AppController(object):
             self._save_note()
             return
 
-        if key in  ('up', 'ctrl e'):
-            self.main_frame.set_focus('body')
-            self.main_cols.set_focus(1)
+        if key in  ('ctrl e'):
+            self._open_file_in_editor()
             return
 
         if key == 'ctrl p':
@@ -218,11 +221,7 @@ class AppController(object):
             return
 
         if key == 'esc':
-            self.search_chars[:] = []
-            self.update()
-            self._set_body('')
-            self._set_header(self.help_text)
-            self.main_cols.set_focus(0)
+            self._clear()
             return
 
         if key == 'backspace':
@@ -267,8 +266,32 @@ class AppController(object):
 
             self._set_body('')
 
+    def _exec_subproc(self, cmd):
+        """Suspend screen and call a subprocess.
+           :param cmd: Command to run.
+           :type cmd: str
+        """
+        self.loop.screen.stop()
+        subprocess.call([cmd], shell=True)
+        self.loop.screen.start()
+
+    def _open_file_in_editor(self):
+        """Open either the matched note or a new note in the user's editor of choice."""
+        filename = self.search_manager.matched_title or ''.join(self.search_chars).strip()
+        filename = filename + NOTE_FILE_EXT
+        filepath = os.path.join(NOOTS_PATH, filename)
+        self._exec_subproc('{0} {1}'.format(EDITOR, filepath))
+        self.update(update_list=False)
+
+    def _clear(self):
+        """Reset application state."""
+        self.search_chars[:] = []
+        self.update()
+        self._set_body('')
+        self._set_header(self.help_text)
+        self.main_cols.set_focus(0)
+
     def main(self):
-        self.loop = urwid.MainLoop(self.main_cols, unhandled_input=self.handle_input)
         self.loop.run()
 
 
