@@ -25,7 +25,6 @@ LOGO  = """
         """
 
 
-
 def path_leaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
@@ -284,10 +283,11 @@ class AppController(object):
         if not filename:
             return
 
+        self.search_manager.search(filename)
         filename = filename + NOTE_FILE_EXT
         filepath = os.path.join(NOOTS_PATH, filename)
         self._exec_subproc('{0} {1}'.format(EDITOR, filepath))
-        self.update(update_list=False)
+        self._set_body(self.search_manager.read_from_match())
 
     def _clear(self):
         """Reset application state."""
