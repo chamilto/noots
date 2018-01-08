@@ -14,15 +14,16 @@ conf = configparser.ConfigParser()
 conf.read(config_file_path)
 NOOTS_PATH = conf['NOOTS']['note_path']
 EDITOR = conf['NOOTS']['editor']
+NOTE_FILE_EXT = '.noot'
 LOGO  = """
     _   __            __
    / | / /___  ____  / /______
   /  |/ / __ \/ __ \/ __/ ___/
  / /|  / /_/ / /_/ / /_(__  )
 /_/ |_/\____/\____/\__/____/
+
         """
 
-NOTE_FILE_EXT = '.noot'
 
 
 def path_leaf(path):
@@ -138,11 +139,12 @@ class AppController(object):
         self.search_box = urwid.LineBox(self.search_level_text)
 
     def _init_header(self):
-        self.help_text = ("{logo}\n"
-                          "Ctrl-D anytime to save current note. \n"
-                          "Ctrl-P to focus search/title bar.\n"
-                          "Press Ctrl-E to focus note editor\n"
-                          "Hold alt to copy text.\n".format(logo=LOGO))
+        self.help_text = (" {logo}\n"
+                          " Ctrl-D       | Save changes.\n"
+                          " Ctrl-P       | Focus search/title bar.\n"
+                          " Ctrl-E       | Edit note.\n"
+                          " Right Arrow  | Focus built-in editor.\n"
+                          " Alt (hold)   | copy text.\n".format(logo=LOGO))
         self.header = urwid.Text(self.help_text)
         self.header_div = urwid.Divider('.')
         self.header_pile = urwid.Pile([self.header, self.header_div])
@@ -278,6 +280,10 @@ class AppController(object):
     def _open_file_in_editor(self):
         """Open either the matched note or a new note in the user's editor of choice."""
         filename = self.search_manager.matched_title or ''.join(self.search_chars).strip()
+
+        if not filename:
+            return
+
         filename = filename + NOTE_FILE_EXT
         filepath = os.path.join(NOOTS_PATH, filename)
         self._exec_subproc('{0} {1}'.format(EDITOR, filepath))
