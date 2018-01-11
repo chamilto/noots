@@ -80,7 +80,7 @@ class SearchManager(object):
 
 
 class AppController(object):
-    """Main Application Controller. Uses one method, handle_input, for all input handling."""
+    """Main Application Controller. Uses one method, _handle_input, for all input handling."""
 
     def __init__(self):
         self.suggestion_content = []
@@ -114,7 +114,7 @@ class AppController(object):
 
         self.loop = urwid.MainLoop(
             self.main_cols,
-            unhandled_input=self.handle_input,
+            unhandled_input=self._handle_input,
             input_filter=self._input_filter,
         )
 
@@ -175,7 +175,7 @@ class AppController(object):
         self.main_lw[:] = urwid.SimpleFocusListWalker(suggestion_content)
 
     def _on_list_item_clicked(self, button, label):
-        self.update(search_string=label, update_list=False)
+        self._update(search_string=label, update_list=False)
 
     def _save_note(self):
         if self.search_manager.matched_title:
@@ -192,7 +192,7 @@ class AppController(object):
             fout.write(self.body_edit_text.get_edit_text())
 
         self.search_manager.refresh_fn_cache()
-        self.update(title)
+        self._update(title)
 
     def _set_body(self, text):
         self.body_edit_text.set_edit_text(text)
@@ -203,56 +203,60 @@ class AppController(object):
     def _set_search_text(self, text):
         self.search_level_text.set_text(text)
 
-    def handle_input(self, key):
+    def _focus_search_column(self):
+        self.main_cols.set_focus(0)
+
+    def _delete_search_char(self):
+        try:
+            self.search_chars.pop()
+        except IndexError:
+            pass
+
+    def _handle_input(self, key):
         """Any keypress that is not handled by the Listwalker (Up, Down)
            or the Edit widget will bubble up to this method. It would probably be
            better to have the individual widgets implement their own keypress, but
            with such a simple UI, this should be fine.
         """
-        if key == '?':
-            self._show_help()
-            return
+        blacklist = ('backspace', 'enter', 'meta', 'down', 'up', 'right', 'left')
+        key_action_map = {
+            '?': (self._show_help, True),
+            'ctrl d': (self._save_note, True),
+            'ctrl e': (self._open_file_in_editor, True),
+            'ctrl p': (self._focus_search_column, True),
+            'esc': (self._clear, True),
+            'backspace': (self._delete_search_char, False)
+        }
 
-        if key == 'ctrl d':
-            self._save_note()
-            return
+        try:
+            key_action_map[key][0]()
+            should_return = key_action_map[key][1]
 
-        if key ==  'ctrl e':
-            self._open_file_in_editor()
-            return
+            if should_return:
+                return
 
-        if key == 'ctrl p':
-            self.main_cols.set_focus(0)
-            return
+        except KeyError:
+            pass
 
-        if key == 'esc':
-            self._clear()
-            return
-
-        if key == 'backspace':
-            try:
-                self.search_chars.pop()
-            except IndexError:
-                pass
-        elif key not in ('enter', 'meta', 'down', 'up', 'right', 'left') and type(key) == str:
+        if type(key) == str and key not in blacklist:
             self.search_chars.append(key)
 
         try:
-            self.update()
+            self._update()
         except:
             pass
 
     def _input_filter(self, keys, raw):
         try:
             if keys[0] == ' ':
-                self.handle_input(keys[0])
+                self._handle_input(keys[0])
                 return
         except IndexError:
-            self.handle_input('esc')
+            self._handle_input('esc')
 
         return keys
 
-    def update(self, search_string='', update_list=True):
+    def _update(self, search_string='', update_list=True):
         if not self.search_chars:
             self._set_body('')
 
@@ -308,7 +312,7 @@ class AppController(object):
     def _clear(self):
         """Reset application state."""
         self.search_chars[:] = []
-        self.update()
+        self._update()
         self._set_body('')
         self._set_header(self.help_text)
         self.main_cols.set_focus(0)
