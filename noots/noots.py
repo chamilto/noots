@@ -79,6 +79,11 @@ class SearchManager(object):
             pass
 
 
+class _Edit(urwid.Edit):
+    def insert_text(self, _):
+        pass
+
+
 class AppController(object):
     """Main Application Controller. Uses one method, _handle_input, for all input handling."""
 
@@ -134,7 +139,7 @@ class AppController(object):
         self.main_cols.set_focus(0)
 
     def _init_body(self):
-        self.body_edit_text = urwid.Edit('', multiline=True)
+        self.body_edit_text = _Edit('')
         self.body = urwid.Filler(self.body_edit_text, 'top')
 
     def _init_search_bar(self):
@@ -143,10 +148,10 @@ class AppController(object):
 
     def _init_header(self):
         self.help_text = (" {logo}\n"
-                          " Ctrl-D       | Save changes.\n"
                           " Ctrl-P       | Focus search/title bar.\n"
                           " Ctrl-E       | Edit note.\n"
-                          " Right Arrow  | Focus built-in editor.\n"
+                          " Ctrl-L       | Redraw screen.\n"
+                          " Right Arrow  | Focus note text.\n"
                           " Alt (hold)   | copy text.\n".format(logo=LOGO))
         self.header = urwid.Text(self.help_text)
         self.header_div = urwid.Divider('.')
@@ -206,6 +211,26 @@ class AppController(object):
     def _focus_search_column(self):
         self.main_cols.set_focus(0)
 
+    def _move_suggestion_focus(self, direction):
+        def _move():
+            try:
+                if direction == 'down':
+                    self.main_lw.set_focus(
+                        self.main_lw.next_position(
+                            self.main_lw.get_focus()[1]
+                        )
+                    )
+                elif direction == 'up':
+                    self.main_lw.set_focus(
+                        self.main_lw.prev_position(
+                            self.main_lw.get_focus()[1]
+                        )
+                    )
+            except IndexError:
+                pass
+
+        return _move
+
     def _delete_search_char(self):
         try:
             self.search_chars.pop()
@@ -218,16 +243,19 @@ class AppController(object):
            better to have the individual widgets implement their own keypress, but
            with such a simple UI, this should be fine.
         """
-        blacklist = ('backspace', 'enter', 'meta', 'down', 'up', 'right', 'left')
+        directional_keys = ('up', 'down', 'right', 'left')
+        blacklist = ('backspace', 'enter', 'meta')
         key_action_map = {
             '?': (self._show_help, True),
             'ctrl d': (self._save_note, True),
             'ctrl e': (self._open_file_in_editor, True),
             'ctrl p': (self._focus_search_column, True),
+            'ctrl l': (self._update, True),
             'esc': (self._clear, True),
-            'backspace': (self._delete_search_char, False)
+            'J': (self._move_suggestion_focus('down'), True),
+            'K': (self._move_suggestion_focus('up'), True),
+            'backspace': (self._delete_search_char, False),
         }
-
         try:
             key_action_map[key][0]()
             should_return = key_action_map[key][1]
@@ -237,6 +265,9 @@ class AppController(object):
 
         except KeyError:
             pass
+
+        if key in directional_keys:
+            return
 
         if type(key) == str and key not in blacklist:
             self.search_chars.append(key)
@@ -293,6 +324,7 @@ class AppController(object):
         self.loop.screen.stop()
         subprocess.call([cmd], shell=True)
         self.loop.screen.start()
+        self.loop.start()
 
     def _open_file_in_editor(self):
         """Open either the matched note or a new note in the user's editor of choice."""
@@ -301,6 +333,7 @@ class AppController(object):
 
         if not filename:
             return
+
         fq_filename = filename + NOTE_FILE_EXT
         filepath = os.path.join(NOOTS_PATH, fq_filename)
         self._exec_subproc('{0} {1}'.format(EDITOR, filepath))
